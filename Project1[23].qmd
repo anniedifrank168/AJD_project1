@@ -17,13 +17,15 @@ pacman::p_load(tidycensus,
  dplyr,
  tidyverse,
  httr,
- jsonlite)
+ jsonlite,
+ purrr,
+ ggplot2)
 
 ```
 
 # Part 1: Data Processing
 
-### In this section, we will query the API and return a nicely formatted tibble.
+### In this section, we will query a PUMS API and return a nicely formatted tibble.
 
 Process:
 
@@ -58,9 +60,15 @@ test<- get_tibble(url_info = url_info)
 
 ```
 
-### In this section, we will write a function that allows users to query the API and change modifiers
+### In this section, we will write a function that allows users to query the API and change modifiers, including:
 
-```{r eval=FALSE}
+-   numeric variables
+
+-   categorical variables
+
+-   geography information 
+
+```{r}
 query_pums <- function(
   year = 2022,
   numeric_vars = c("AGEP", "PWGTP"),
@@ -75,7 +83,7 @@ query_pums <- function(
   
     # defining the numeric and categorical variable options
     num_var_options <-
-      c("AGEP", "GASP", "GRPIP", "JWAP", "JWDP", "JWMNP")
+      c("AGEP", "GASP", "GRPIP", "JWAP", "JWDP", "JWMNP","PWGTP")
     cat_var_options <-
       c("FER",
         "HHL",
@@ -113,43 +121,36 @@ if (length(numeric_vars) < 1) {
     stop("Geography level is invalid")
   }
   
-  # making the API request- setting the base of the url
-  base_url <- "https://api.census.gov/data/"
-  api_url <- paste0(base_url,as.character(year), "/acs/acs1/pums?get=")
-  
-  # Construct API parameters
-  params <- list(
-    get = paste(c(numeric_vars, categorical_vars), collapse = ",")
-  )
-  
-  # Setting geography parameter
+  #Building api url 
+   api_url <- paste0(
+      "https://api.census.gov/data/", 
+      year, 
+      "/acs/acs1/pums?get=", 
+      paste(c(numeric_vars, categorical_vars), collapse = ",")
+    )
+   print(api_url)
+    
+    # Geography level (append to API URL)
+  geo_for <- ""
   if (geography_level == "All") {
-    params$geo_level <- NULL
+    # No additional parameters needed
   } else if (geography_level == "Region") {
-    params$geo_level <- "region:*"
+    geo_for <- "&for=region:*"
   } else if (geography_level == "Division") {
-    params$geo_level <- "division:*"
+    geo_for <- "&for=division:*"
   } else if (geography_level == "State") {
-    params$geo_level <- "state:*"
+    if (!is.null(geography_filter_value)) {
+      # Correctly appending the geography filter value for state
+      geo_for <- paste0("&for=public%20use%20microdata%20area:*&in=", geography_filter_value)
+    } else {
+      geo_for <- "&for=state:*"
+    }
   }
+   api_url <- paste0(api_url, geo_for)
+   
+    # Print URL for debugging
+    print(paste("API URL:", api_url))
   
-    # Add geography filter if specified
-  if (!is.null(geography_filter_value)) {
-    params$geo_level <- geography_filter_value
-  }
-  
-  # Print params for debugging
-  print("API URL:")
-  print(api_url)
-  print("API parameters:")
-  print(params)
-  
-  #appending parameters to the api url 
-  api_url<- paste0(api_url, params$get)
-  #optional geography level 
-  if (!is.null(params$geo_level)) { 
-    #append geo param 
-    api_url<- paste0(api_url, "&for=", params$geo_level)}
   
   # Query the API
   response <- GET(api_url)
@@ -180,27 +181,80 @@ if (length(numeric_vars) < 1) {
   data[cat_vars_tibble] <- lapply(data[cat_vars_tibble], as.factor)
   
   #adding a class of 'census' to the tibble 
-  class(data) <- c("census", class(your_tibble)
+  class(data) <- c("census", class(data))
   
-  return(data)
+return(data)
 }
 
 
 #testing this 
 test2 <- query_pums(
   year = 2021,
-  numeric_vars = c("AGEP"),
+  numeric_vars = c("AGEP", "PWGTP"),
   categorical_vars = c("SEX"),
   geography_level = "All")
+head(test2)
+str(test2)
 
-# year=2021
-# numeric_vars = c("AGEP")
-#  categorical_vars = c("SEX")
-#   geography_level = "All"
+test3 <- query_pums(
+  year = 2021,
+  numeric_vars = c("AGEP"),
+  categorical_vars = c("SEX"),
+  geography_level = "State",
+  geography_filter_value = "state:06"
+)
+head(test3)
+str(test3)
 
 ```
 
 ### Next, we will write a function that allows the user to specify multiple years of survey data (and all the other options above)
+
+-   This function will call the above single-year function as many times as needed and then combine the data into one final tibble. A year variable will be included in the final tibble.
+
+```{r}
+multiyear_querypums <- function(
+    #paremeters accept multiple years and the other options already defined in query_pums
+    years= c(2021,2022),
+    numeric_vars = c("AGEP", "PWGTP"),
+    categorical_vars= c("SEX"),
+    geography_level="All",
+    geography_filter_value = NULL
+) {
+
+  #initializing an empty tibble to store results 
+  multiapi_data<- tibble()
+  
+  # Loop through each year and query the data
+  for (year in years) {
+    # Call the query_pums function for each year
+    single_year_data <- query_pums(
+      year = year,
+      numeric_vars = numeric_vars,
+      categorical_vars = categorical_vars,
+      geography_level = geography_level,
+      geography_filter_value = geography_filter_value
+    )
+    #add year column
+    single_year_data <- single_year_data |> mutate(year=year)
+    
+    #combine data 
+    multiapi_data <- bind_rows(multiapi_data, single_year_data)
+
+}
+  return(multiapi_data)
+}
+
+#Testing usage of function 
+multiquery_test <- multiyear_querypums(
+  years = c(2022, 2021), 
+  numeric_vars = c("AGEP"), 
+  categorical_vars = c("SEX"), 
+  geography_level = "All"
+)
+head(multiquery_test)
+str(multiquery_test)
+```
 
 # Part 2: Writing a summarizing function
 
@@ -210,9 +264,11 @@ test2 <- query_pums(
 
 -   Next, will write a custom summary function that gives us the means and std devs for our numeric variables and counts for our categorical variables
 
--   Additionally, will create a generic plot() function for a census class table
+    -   If not specified, will summarize the numeric variables except PWGTP because this is actually the number of people for a particular row
 
-```{r eval = FALSE}
+    -   if not specified, will summarize all the categorical variables
+
+```{r}
 #background- analyzing plot functions
 plot.function #what is used for a class=function
 getS3method("plot","data.frame") #what is used for a class=data frame 
@@ -222,5 +278,64 @@ plot #generic method that specifies UseMethod("plot)
 
 #Next, writing a custom summary function for class = census 
 
-summary.census <- function(tibble, numeric_variables, categorical_variables) {}
+summary.census <- function(tibble, numeric_vars= NULL, categorical_vars=NULL) {
+  
+  weight_var<- "PWGTP"
+  
+  #default num and cat variables 
+    if (is.null(numeric_vars)) {
+    numeric_vars <- setdiff(names(data), c(weight_var, categorical_vars))  # Exclude PWGTP and cat variables using setdif, which takes the difference between the two vectors
+    numeric_vars <- numeric_vars[sapply(data[numeric_vars], is.numeric)]
+  }
+  if (is.null(categorical_vars)) {
+    categorical_vars <- names(data)[sapply(data, is.factor)]
+  }
+  
+  #mean function - this will work for if there is or isnt PWGTP. if its present it will do a weighted mean 
+  #function for mmean
+  tib_mean <- function(x, weight) {
+    sum(x * weight, na.rm = TRUE) / sum(weight, na.rm = TRUE)
+  }
+  
+  #function for std dev 
+  tib_sd <- function(x, weight) {
+    mean_x <- tib_mean(x, weight)
+    sqrt(sum(weight * (x - mean_x)^2, na.rm = TRUE) / sum(weight, na.rm = TRUE))
+  }
+  
+  
+  #initialize list for results 
+  summaries<- list()
+  
+  #summarize num vars using the helper functions 
+  for (num_var in numeric_vars) {
+    summaries[[num_var]] <- list(
+      mean=tib_mean(tibble[[num_var]], tibble[[weight_var]]),
+      sd= tib_sd(tibble[[num_var]], tibble[[weight_var]])
+    )
+  }
+  
+  #summarize cat vars using the helper functions and the table function to count categorical variables 
+   for (cat_var in categorical_vars) {
+    summaries[[cat_var]] <- table(tibble[[cat_var]], useNA = "ifany")
+   }
+  return(summaries)
+}
+
+#testing usage 
+summary_test <- summary.census(
+  test2,
+  numeric_vars= "AGEP",
+  categorical_vars = "SEX"
+)
+summary_test
 ```
+
+-   Additionally, we will create a generic plot() function for a census class table
+
+    ```{r}
+    ggplot(test2,
+    aes(x = SEX, y = AGEP, weight = PWGTP)) + geom_boxplot()
+    ```
+
+# Part 3: Ending Example
