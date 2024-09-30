@@ -43,7 +43,7 @@ Process:
 -   Write a function to parse the data and put it into a tibble for ease
 
 
-```{r}
+```{r part1}
 #Build the URL\
 #https://api.census.gov/data/2022/acs/acs1/pums?get=SEX,PWGTP,MAR&SCHL=24
 pums_url <-
@@ -84,7 +84,7 @@ str(test)
 -   geography information
 
 
-```{r}
+```{r querypums}
 QueryPums <- function(year = 2022,
                        numeric_vars = c("AGEP", "PWGTP"),
                        categorical_vars = c("SEX"),
@@ -232,7 +232,7 @@ str(test3)
 -   This function will call the above single-year function as many times as needed and then combine the data into one final tibble. A year variable will be included in the final tibble.
 
 
-```{r}
+```{r multiyearQP}
 MultiYearQP <- function(#paremeters accept multiple years and the other options already defined in QueryPums
   years = c(2021, 2022),
   numeric_vars = c("AGEP", "PWGTP"),
@@ -290,7 +290,7 @@ str(multiquery_test)
     -   if not specified, will summarize all the categorical variables
 
 
-```{r}
+```{r summarycensus}
 #background- analyzing plot functions
 #plot.function #what is used for a class=function
 #getS3method("plot","data.frame") #what is used for a class=data frame 
@@ -359,7 +359,7 @@ summary_test
 -   Additionally, we will create a generic plot() function for a census class table
 
 
-    ```{r}
+    ```{r plot census}
     
     PlotCensus <- function(data, cat_var, num_var) {
       ggplot(data, aes(
@@ -383,7 +383,7 @@ summary_test
 ### Imagine we are interested in whether males or females are more likely to attend school in Alabama (and what school they have completed). To look at this question I will use the API query function to pull the "SCH" and "SEX" categorical variables (as well as the default numeric variables) for Alabama (state code = 01) and perform summary functions to see if there is a significant difference. 
 
 
-```{r}
+```{r wrapexample}
 wrap_example <- QueryPums(
   year = 2022,
   numeric_vars = c("AGEP", "PWGTP"),

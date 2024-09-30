@@ -347,22 +347,24 @@ summary_test
 
 -   Additionally, we will create a generic plot() function for a census class table
 
-    ```{r plot census}
+    ```{r plotcensus}
     
     PlotCensus <- function(data, cat_var, num_var) {
       ggplot(data, aes(
         x = get(cat_var),
         y = get(num_var),
-        weight = PWGTP
+        weight = NULL
       )) +
         geom_boxplot() +
         labs(x = cat_var, y = num_var)
     }
     
-    PlotCensus(data = multiquery_test, cat_var = "SEX", num_var = "AGEP")
+    PlotCensus(data = test3, cat_var = "SEX", num_var = "AGEP")
     
-    ggplot(multiquery_test,
-    aes(x = SEX, y = AGEP, w = PWGTP)) + geom_boxplot()
+    #PlotCensus(data = multiquery_test, cat_var = "SEX", num_var = "AGEP", weight = 
+    #             "PWGTP")
+    #every time i try to render the document, it crashes at this line. 
+
     ```
 
 # Part 3: Ending Example
