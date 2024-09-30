@@ -6,7 +6,9 @@ editor: visual
 
 
 
+
 ## Annie DiFrank
+
 
 
 
@@ -29,6 +31,7 @@ pacman::p_load(tidycensus,
 
 
 
+
 # Part 1: Data Processing
 
 ### In this section, we will query a PUMS API and return a nicely formatted tibble.
@@ -40,6 +43,7 @@ Process:
 -   Use httr:get() to contact the website
 
 -   Write a function to parse the data and put it into a tibble for ease
+
 
 
 
@@ -70,6 +74,7 @@ test<- get_tibble(url_info = url_info)
 
 
 
+
 ### In this section, we will write a function that allows users to query the API and change modifiers, including:
 
 -   numeric variables
@@ -77,6 +82,7 @@ test<- get_tibble(url_info = url_info)
 -   categorical variables
 
 -   geography information 
+
 
 
 
@@ -222,9 +228,11 @@ str(test3)
 
 
 
+
 ### Next, we will write a function that allows the user to specify multiple years of survey data (and all the other options above)
 
 -   This function will call the above single-year function as many times as needed and then combine the data into one final tibble. A year variable will be included in the final tibble.
+
 
 
 
@@ -274,6 +282,7 @@ str(multiquery_test)
 
 
 
+
 # Part 2: Writing a summarizing function
 
 ### Here, we will process the data in the tibble appropriately.
@@ -285,6 +294,7 @@ str(multiquery_test)
     -   If not specified, will summarize the numeric variables except PWGTP because this is actually the number of people for a particular row
 
     -   if not specified, will summarize all the categorical variables
+
 
 
 
@@ -353,7 +363,9 @@ summary_test
 
 
 
+
 -   Additionally, we will create a generic plot() function for a census class table
+
 
 
 
@@ -364,5 +376,7 @@ summary_test
 
 
 
+
 # Part 3: Ending Example
+
 
