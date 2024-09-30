@@ -39,7 +39,7 @@ Process:
 
 -   Write a function to parse the data and put it into a tibble for ease
 
-```{r}
+```{r part1}
 #Build the URL\
 #https://api.census.gov/data/2022/acs/acs1/pums?get=SEX,PWGTP,MAR&SCHL=24
 pums_url <-
@@ -49,7 +49,7 @@ url_info <- httr::GET(pums_url)
 str(url_info, max.level = 1)
 
 #Helper function to take output from GET() and turn it into a tibble
-get_tibble <- function(url_info) {
+GetTibble<- function(url_info) {
   #Parse the content
   parsed <- fromJSON(rawToChar(url_info$content))
   tibble_data <- as_tibble(parsed)
@@ -62,7 +62,11 @@ get_tibble <- function(url_info) {
   return(tibble_data)
 }
 #testing function
-test <- get_tibble(url_info = url_info)
+test <- GetTibble(url_info = url_info)
+
+#display 
+test
+str(test)
 
 ```
 
@@ -74,8 +78,8 @@ test <- get_tibble(url_info = url_info)
 
 -   geography information
 
-```{r}
-query_pums <- function(year = 2022,
+```{r querypums}
+QueryPums <- function(year = 2022,
                        numeric_vars = c("AGEP", "PWGTP"),
                        categorical_vars = c("SEX"),
                        geography_level = "All",
@@ -92,8 +96,6 @@ query_pums <- function(year = 2022,
     c("FER",
       "HHL",
       "HISPEED",
-      "JWAP",
-      "JWDP",
       "JWTRNS",
       "SCH",
       "SCHL",
@@ -195,7 +197,7 @@ query_pums <- function(year = 2022,
 
 
 #testing this
-# test2 <- query_pums(
+# test2 <- QueryPums(
 #   year = 2021,
 #   numeric_vars = c("AGEP", "PWGTP"),
 #   categorical_vars = c("SEX"),
@@ -204,15 +206,17 @@ query_pums <- function(year = 2022,
 # head(test2)
 #str(test2)
 #testing with geography filter value 
-test3 <- query_pums(
+test3 <- QueryPums(
   year = 2021,
   numeric_vars = c("AGEP"),
   categorical_vars = c("SEX"),
   geography_level = "State",
-  geography_filter_value = "state:06"
+  geography_filter_value = "state:13"
 )
-head(test3)
-#str(test3)
+
+#display 
+test3
+str(test3)
 
 ```
 
@@ -220,8 +224,8 @@ head(test3)
 
 -   This function will call the above single-year function as many times as needed and then combine the data into one final tibble. A year variable will be included in the final tibble.
 
-```{r}
-multiyear_querypums <- function(#paremeters accept multiple years and the other options already defined in query_pums
+```{r multiyearQP}
+MultiYearQP <- function(#paremeters accept multiple years and the other options already defined in QueryPums
   years = c(2021, 2022),
   numeric_vars = c("AGEP", "PWGTP"),
   categorical_vars = c("SEX"),
@@ -232,8 +236,8 @@ multiyear_querypums <- function(#paremeters accept multiple years and the other 
   
   # Loop through each year and query the data
   for (year in years) {
-    # Call the query_pums function for each year
-    single_year_data <- query_pums(
+    # Call the QueryPums function for each year
+    single_year_data <- QueryPums(
       year = year,
       numeric_vars = numeric_vars,
       categorical_vars = categorical_vars,
@@ -251,15 +255,17 @@ multiyear_querypums <- function(#paremeters accept multiple years and the other 
 }
 
 #Testing usage of function
-multiquery_test <- multiyear_querypums(
+multiquery_test <- MultiYearQP(
   years = c(2022, 2021),
   numeric_vars = c("AGEP", "PWGTP"),
   categorical_vars = c("SEX"),
   geography_level = "All",
-  geography_filter_value = "state:06"
+  geography_filter_value = "state:13"
 )
-head(multiquery_test)
-#str(multiquery_test)
+
+#display 
+multiquery_test
+str(multiquery_test)
 ```
 
 # Part 2: Writing a summarizing function
@@ -274,7 +280,7 @@ head(multiquery_test)
 
     -   if not specified, will summarize all the categorical variables
 
-```{r}
+```{r summarycensus}
 #background- analyzing plot functions
 #plot.function #what is used for a class=function
 #getS3method("plot","data.frame") #what is used for a class=data frame 
@@ -284,7 +290,7 @@ head(multiquery_test)
 
 #Next, writing a custom summary function for class = census 
 
-summary.census <- function(tibble, numeric_vars= NULL, categorical_vars=NULL) {
+SummaryCensus <- function(tibble, numeric_vars= NULL, categorical_vars=NULL) {
   
   w_var<- "PWGTP"
   
@@ -329,19 +335,85 @@ summary.census <- function(tibble, numeric_vars= NULL, categorical_vars=NULL) {
 }
 
 #testing usage 
-summary_test <- summary(
+summary_test <- SummaryCensus(
   multiquery_test,
   numeric_vars= "AGEP",
   categorical_vars = "SEX"
 )
+
+#display 
 summary_test
 ```
 
 -   Additionally, we will create a generic plot() function for a census class table
 
-    ```{r}
+    ```{r plot census}
+    
+    PlotCensus <- function(data, cat_var, num_var) {
+      ggplot(data, aes(
+        x = get(cat_var),
+        y = get(num_var),
+        weight = PWGTP
+      )) +
+        geom_boxplot() +
+        labs(x = cat_var, y = num_var)
+    }
+    
+    PlotCensus(data = multiquery_test, cat_var = "SEX", num_var = "AGEP")
+    
     ggplot(multiquery_test,
     aes(x = SEX, y = AGEP, w = PWGTP)) + geom_boxplot()
     ```
 
 # Part 3: Ending Example
+
+### Imagine we are interested in whether males or females are more likely to attend school in Alabama (and what school they have completed). To look at this question I will use the API query function to pull the "SCH" and "SEX" categorical variables (as well as the default numeric variables) for Alabama (state code = 01) and perform summary functions to see if there is a significant difference. 
+
+```{r wrapexample}
+wrap_example <- QueryPums(
+  year = 2022,
+  numeric_vars = c("AGEP", "PWGTP"),
+  categorical_vars = c("SEX","SCH"),
+  geography_level = "State",
+  geography_filter_value = "state:01"
+)
+
+#Because I am interested in the level of schooling completed through college, I am going to filter to age >18, because most people under 17 haven't completed school simply due to age. 
+wrap_example %>% filter(AGEP >= 18) ->filtered_wrap
+
+wrap_summary <- SummaryCensus(
+  filtered_wrap,
+  numeric_vars= "AGEP",
+  categorical_vars = c("SEX", "SCH")
+)
+wrap_summary
+
+#There's about an equal amount of males and females, which is good. 
+
+#Because both variables are categorical, I am going to perform a Chi Squared test for independance.
+
+#First dropping the value of 0 for SCH because this is 'N/A (less than 3 years old)- having 0's in the table for the Chi Test (because everyone is atleast 18) will throw an error.
+wrap_table<- filtered_wrap %>% filter(SCH !=0)
+
+#drop unused levels from SCH variable
+wrap_table$SCH <- droplevels(wrap_table$SCH)
+
+#run Chi squared test
+chi_table<- table(wrap_table$SEX, wrap_table$SCH)
+chi_table
+
+chi_test<- chisq.test(chi_table)
+chi_test
+
+PlotCensus(filtered_wrap, "SEX", "AGEP")
+PlotCensus(filtered_wrap, "SCH", "AGEP")
+
+ggplot(wrap_table, aes(x = SCH, fill = SEX)) +
+  geom_bar(position = "dodge") +
+  labs(title = "Distribution of Schooling Levels by Sex",
+       x = "Schooling Level",
+       y = "Count",
+       fill = "Sex") 
+```
+
+With a p-value of 1.61e-05 we will reject a null hypothesis (p <0.05); there is statistically significant evidence that the distribution of schooling levels is associated with sex. 
